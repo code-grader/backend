@@ -32,28 +32,57 @@ async def websocket_endpoint(websocket: WebSocket):
             if message["type"] == "code_submit":
                 code_snippet = CodeSnippet(code=message["code"])
 
-                analysis_task = analyze_code(code_snippet.code)
-                suggestion_task = generate_suggestion(code_snippet.code)
-
-                analysis_result, code_suggestion = await asyncio.gather(
-                    analysis_task, suggestion_task
+                # Create tasks for analysis and suggestions
+                analysis_task = asyncio.create_task(analyze_code(code_snippet.code))
+                suggestion_task = asyncio.create_task(
+                    generate_suggestion(code_snippet.code)
                 )
 
-                await websocket.send_json(
-                    {
-                        "type": "analysis_result",
-                        "data": analysis_result,
-                    }
+                # Gather and handle results concurrently
+                done, pending = await asyncio.wait(
+                    {analysis_task, suggestion_task},
+                    return_when=asyncio.FIRST_COMPLETED,
                 )
 
-                for line in code_suggestion.split("\n"):
-                    await websocket.send_json(
-                        {
-                            "type": "code_suggestion",
-                            "data": line,
-                        }
-                    )
-                    await asyncio.sleep(0.5)
+                for task in done:
+                    if task == analysis_task:
+                        analysis_result = task.result()
+                        await websocket.send_json(
+                            {
+                                "type": "analysis_result",
+                                "data": analysis_result,
+                            }
+                        )
+                    elif task == suggestion_task:
+                        code_suggestion = task.result()
+                        for line in code_suggestion.split("\n"):
+                            await websocket.send_json(
+                                {
+                                    "type": "code_suggestion",
+                                    "data": line,
+                                }
+                            )
+                            await asyncio.sleep(0.1)
+
+                # Ensure to send out the remaining task's result
+                for task in pending:
+                    result = await task
+                    if task == analysis_task:
+                        await websocket.send_json(
+                            {
+                                "type": "analysis_result",
+                                "data": result,
+                            }
+                        )
+                    elif task == suggestion_task:
+                        for line in result.split("\n"):
+                            await websocket.send_json(
+                                {
+                                    "type": "code_suggestion",
+                                    "data": line,
+                                }
+                            )
+                            await asyncio.sleep(0.1)
 
     except WebSocketDisconnect:
         logging.info("Client disconnected")
