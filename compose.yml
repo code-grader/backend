@@ -1,5 +1,6 @@
 services:
-  grader-server:
+  grader-backend:
+    container_name: grader-backend
     build: .
     ports:
       - "8000:8000"
