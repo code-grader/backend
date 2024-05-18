@@ -55,14 +55,12 @@ async def websocket_endpoint(websocket: WebSocket):
                         )
                     elif task == suggestion_task:
                         code_suggestion = task.result()
-                        for line in code_suggestion.split("\n"):
-                            await websocket.send_json(
-                                {
-                                    "type": "code_suggestion",
-                                    "data": line,
-                                }
-                            )
-                            await asyncio.sleep(0.1)
+                        await websocket.send_json(
+                            {
+                                "type": "code_suggestion",
+                                "data": code_suggestion,
+                            }
+                        )
 
                 # Ensure to send out the remaining task's result
                 for task in pending:
@@ -75,14 +73,12 @@ async def websocket_endpoint(websocket: WebSocket):
                             }
                         )
                     elif task == suggestion_task:
-                        for line in result.split("\n"):
-                            await websocket.send_json(
-                                {
-                                    "type": "code_suggestion",
-                                    "data": line,
-                                }
-                            )
-                            await asyncio.sleep(0.1)
+                        await websocket.send_json(
+                            {
+                                "type": "code_suggestion",
+                                "data": result,
+                            }
+                        )
 
     except WebSocketDisconnect:
         logging.info("Client disconnected")
