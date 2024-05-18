@@ -24,8 +24,8 @@ async def read_root():
 @app.websocket("/ws/code")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    try:
-        while True:
+    while True:
+        try:
             data = await websocket.receive_text()
             message = json.loads(data)
 
@@ -33,7 +33,8 @@ async def websocket_endpoint(websocket: WebSocket):
                 code_snippet = CodeSnippet(code=message["code"])
 
                 # Create tasks for analysis and suggestions
-                analysis_task = asyncio.create_task(analyze_code(code_snippet.code))
+                analysis_task = asyncio.create_task(
+                    analyze_code(code_snippet.code))
                 suggestion_task = asyncio.create_task(
                     generate_suggestion(code_snippet.code)
                 )
@@ -80,7 +81,16 @@ async def websocket_endpoint(websocket: WebSocket):
                             }
                         )
 
-    except WebSocketDisconnect:
-        logging.info("Client disconnected")
-    except Exception as e:
-        logging.error(f"An error occurred: {e}")
+        except WebSocketDisconnect:
+            logging.info("Client disconnected")
+            break
+        except Exception as e:
+            logging.error(f"An error occurred: {e}")
+            await websocket.send_json(
+                {
+                    "type": "error",
+                    "message": "An error occurred while processing the request",
+                    "error": str(e),
+                }
+            )
+            continue
